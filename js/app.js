@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Event Listeners
     btnFetchAsync.addEventListener('click', () => fetchPokemonAsync(pokemonInput.value.trim().toLowerCase()));
     btnFetchPromises.addEventListener('click', () => fetchPokemonPromises(pokemonInput.value.trim().toLowerCase()));
-    
+
     // Trigger search on Enter key
     pokemonInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -222,28 +222,28 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="stat-label">Puntos de Vida (HP)</span>
                             <span class="stat-val">${statsMap['hp'] || '-'}</span>
                             <div class="stat-bar-bg">
-                                <div class="stat-bar-fill" style="width: ${Math.min(100, ((statsMap['hp'] || 0)/150)*100)}%"></div>
+                                <div class="stat-bar-fill" style="width: ${Math.min(100, ((statsMap['hp'] || 0) / 150) * 100)}%"></div>
                             </div>
                         </div>
                         <div class="stat-item">
                             <span class="stat-label">Ataque</span>
                             <span class="stat-val">${statsMap['attack'] || '-'}</span>
                             <div class="stat-bar-bg">
-                                <div class="stat-bar-fill" style="width: ${Math.min(100, ((statsMap['attack'] || 0)/150)*100)}%"></div>
+                                <div class="stat-bar-fill" style="width: ${Math.min(100, ((statsMap['attack'] || 0) / 150) * 100)}%"></div>
                             </div>
                         </div>
                         <div class="stat-item">
                             <span class="stat-label">Defensa</span>
                             <span class="stat-val">${statsMap['defense'] || '-'}</span>
                             <div class="stat-bar-bg">
-                                <div class="stat-bar-fill" style="width: ${Math.min(100, ((statsMap['defense'] || 0)/150)*100)}%"></div>
+                                <div class="stat-bar-fill" style="width: ${Math.min(100, ((statsMap['defense'] || 0) / 150) * 100)}%"></div>
                             </div>
                         </div>
                         <div class="stat-item">
                             <span class="stat-label">Velocidad</span>
                             <span class="stat-val">${statsMap['speed'] || '-'}</span>
                             <div class="stat-bar-bg">
-                                <div class="stat-bar-fill" style="width: ${Math.min(100, ((statsMap['speed'] || 0)/150)*100)}%"></div>
+                                <div class="stat-bar-fill" style="width: ${Math.min(100, ((statsMap['speed'] || 0) / 150) * 100)}%"></div>
                             </div>
                         </div>
                         <div class="stat-item">
@@ -277,8 +277,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateCodeDisplayAsync(query) {
         codeTitle.textContent = 'Código JavaScript (async / await)';
-        codeSnippetContent.textContent = 
-`// Petición HTTP usando async / await
+        codeSnippetContent.textContent =
+            `// Petición HTTP usando async / await
 async function obtenerPokemon() {
   const url = 'https://pokeapi.co/api/v2/pokemon/${query}';
 
@@ -306,8 +306,8 @@ obtenerPokemon();`;
 
     function updateCodeDisplayPromises(query) {
         codeTitle.textContent = 'Código JavaScript (Promesas .then / .catch)';
-        codeSnippetContent.textContent = 
-`// Petición HTTP usando Promesas (.then / .catch)
+        codeSnippetContent.textContent =
+            `// Petición HTTP usando Promesas (.then / .catch)
 function obtenerPokemonConPromesas() {
   const url = 'https://pokeapi.co/api/v2/pokemon/${query}';
 
