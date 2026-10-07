@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guía Interactiva: Cómo funciona Fetch en JavaScript con PokéAPI</title>
+    <meta name="description" content="Aprende a utilizar la API Fetch de JavaScript consumiendo la PokéAPI pública de Ditto. Guía paso a paso con demos interactivas y código listo para usar.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Estilos CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+    <!-- Header Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <span class="logo-icon">⚡</span>
+                <span class="logo-text">FetchJS<span class="highlight">.guide</span></span>
+            </div>
+            <nav>
+                <a href="#demostracion" class="nav-link">Demo en Vivo</a>
+                <a href="#explicacion" class="nav-link">Explicación Paso a Paso</a>
+                <a href="#comparativa" class="nav-link">Sintaxis & Ejemplos</a>
+                <a href="#buenas-practicas" class="nav-link">Buenas Prácticas</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-container">
+
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-badge">🌐 API Fetch & Asincronía en JavaScript</div>
+            <h1 class="hero-title">Aprende a consumir APIs con <span class="gradient-text">fetch()</span></h1>
+            <p class="hero-subtitle">
+                Descubre cómo realizar peticiones HTTP asíncronas en el navegador consumiendo en vivo la API pública de 
+                <code>https://pokeapi.co/api/v2/pokemon/ditto</code>.
+            </p>
+        </section>
+
+        <!-- Live Playground Section -->
+        <section id="demostracion" class="card demo-card">
+            <div class="card-header">
+                <h2>🧪 Laboratorio Interactivo de Peticiones</h2>
+                <p>Prueba en tiempo real cómo responde la API y observa la transformación del JSON a componentes de interfaz.</p>
+            </div>
+
+            <div class="demo-controls">
+                <div class="input-group">
+                    <label for="pokemonInput">URL de la API:</label>
+                    <div class="url-bar">
+                        <span class="http-method">GET</span>
+                        <span class="url-base">https://pokeapi.co/api/v2/pokemon/</span>
+                        <input type="text" id="pokemonInput" value="ditto" placeholder="ej: ditto, pikachu, 132">
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button id="btnFetchAsync" class="btn btn-primary">
+                        <span class="btn-icon">⚡</span> Ejecutar con <code>async/await</code>
+                    </button>
+                    <button id="btnFetchPromises" class="btn btn-secondary">
+                        <span class="btn-icon">🔄</span> Ejecutar con <code>.then()</code>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status & Metrics bar -->
+            <div id="metricsBar" class="metrics-bar hidden">
+                <div class="metric-item">
+                    <span class="metric-label">Estado HTTP</span>
+                    <span id="metricStatus" class="badge badge-success">200 OK</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Tiempo de Respuesta</span>
+                    <span id="metricTime" class="metric-value">0 ms</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Tipo de Contenido</span>
+                    <span id="metricType" class="metric-value">application/json</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Modo Utilizado</span>
+                    <span id="metricMode" class="badge badge-info">async/await</span>
+                </div>
+            </div>
+
+            <!-- Tabs container -->
+            <div class="tabs-container">
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="tab-card">🖼️ Tarjeta Rendereada</button>
+                    <button class="tab-btn" data-tab="tab-json">📋 Respuesta JSON (Raw)</button>
+                    <button class="tab-btn" data-tab="tab-code">💻 Código JS Ejecutado</button>
+                </div>
+
+                <div class="tabs-content">
+                    <!-- Tab 1: Rendered Card -->
+                    <div id="tab-card" class="tab-pane active">
+                        <div id="pokemonCardDisplay" class="pokemon-display-container">
+                            <div class="placeholder-state">
+                                <span class="placeholder-icon">🔍</span>
+                                <p>Haz clic en <strong>Ejecutar</strong> para obtener los datos de Ditto de la PokéAPI.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Raw JSON -->
+                    <div id="tab-json" class="tab-pane">
+                        <div class="code-header">
+                            <span>Respuesta Servidor JSON</span>
+                            <button id="btnCopyJson" class="btn-sm">📋 Copiar JSON</button>
+                        </div>
+                        <pre id="jsonOutput" class="code-block"><code>// Presiona "Ejecutar" para ver la respuesta JSON aquí...</code></pre>
+                    </div>
+
+                    <!-- Tab 3: Executed Code -->
+                    <div id="tab-code" class="tab-pane">
+                        <div class="code-header">
+                            <span id="codeTitle">Código JavaScript Ejecutado</span>
+                            <button id="btnCopyCode" class="btn-sm">📋 Copiar Código</button>
+                        </div>
+                        <pre id="codeOutput" class="code-block"><code id="codeSnippetContent"></code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step-by-Step Educational Explanation -->
+        <section id="explicacion" class="explanation-section">
+            <h2 class="section-title">💡 Explicación Paso a Paso de <code>fetch()</code></h2>
+            <p class="section-subtitle">Aprende qué sucede internamente desde que llamas a la función hasta que muestras los datos en pantalla.</p>
+
+            <div class="steps-grid">
+                <!-- Step 1 -->
+                <div class="step-card">
+                    <div class="step-number">01</div>
+                    <h3>Llamada Inicial y Promesas</h3>
+                    <p>
+                        La función nativa <code>fetch(url)</code> inicia una petición de red HTTP asíncrona hacia la URL especificada.
+                        Retorna inmediatamente un objeto <strong>Promise</strong> (Promesa).
+                    </p>
+                    <div class="mini-code">
+                        <code>const respuesta = await fetch('https://pokeapi.co/api/v2/pokemon/ditto');</code>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="step-card">
+                    <div class="step-number">02</div>
+                    <h3>Objeto Response & Estado HTTP</h3>
+                    <p>
+                        La promesa del <code>fetch</code> no devuelve los datos directamente, sino un objeto <code>Response</code> con metadatos.
+                        Siempre debemos verificar si la respuesta fue exitosa usando <code>response.ok</code>.
+                    </p>
+                    <div class="mini-code">
+                        <code>if (!respuesta.ok) throw new Error('Error HTTP: ' + respuesta.status);</code>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="step-card">
+                    <div class="step-number">03</div>
+                    <h3>Lectura y Parseo a JSON</h3>
+                    <p>
+                        Para leer el cuerpo de la respuesta en formato JSON, llamamos a <code>response.json()</code>.
+                        Este método también es asíncrono y devuelve otra Promesa con el objeto transformado.
+                    </p>
+                    <div class="mini-code">
+                        <code>const pokemon = await respuesta.json();</code>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="step-card">
+                    <div class="step-number">04</div>
+                    <h3>Manejo de Errores con try...catch</h3>
+                    <p>
+                        Es fundamental envolver nuestro flujo en un bloque <code>try...catch</code> para capturar fallos de red (sin conexión, bloqueo CORS, URL inaccesible).
+                    </p>
+                    <div class="mini-code">
+                        <code>try { /* fetch */ } catch (error) { console.error(error); }</code>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Syntax Comparison Section -->
+        <section id="comparativa" class="card">
+            <div class="card-header">
+                <h2>⚔️ Comparativa de Sintaxis: <code>async/await</code> vs <code>.then()</code></h2>
+                <p>Ambos enfoques funcionan exactamente igual por debajo, pero <code>async/await</code> ofrece una lectura secuencial y moderna.</p>
+            </div>
+
+            <div class="comparison-grid">
+                <!-- Modern Syntax -->
+                <div class="code-box">
+                    <div class="code-box-header badge-modern">
+                        <span>✨ Opción 1: Modern Syntax (async / await)</span>
+                    </div>
+                    <pre class="code-block"><code><span class="kwd">async function</span> <span class="fn">obtenerDitto</span>() {
+  <span class="kwd">try</span> {
+    <span class="com">// 1. Hacer la petición HTTP</span>
+    <span class="kwd">const</span> res = <span class="kwd">await</span> <span class="fn">fetch</span>(<span class="str">'https://pokeapi.co/api/v2/pokemon/ditto'</span>);
+    
+    <span class="com">// 2. Validar que la respuesta sea OK (código 200-299)</span>
+    <span class="kwd">if</span> (!res.ok) {
+      <span class="kwd">throw new</span> <span class="typ">Error</span>(<span class="str">`Error HTTP: ${res.status}`</span>);
+    }
+
+    <span class="com">// 3. Parsear la respuesta a JSON</span>
+    <span class="kwd">const</span> ditto = <span class="kwd">await</span> res.<span class="fn">json</span>();
+    
+    <span class="com">// 4. Utilizar los datos recibidos</span>
+    console.<span class="fn">log</span>(<span class="str">'Nombre:'</span>, ditto.name);
+    console.<span class="fn">log</span>(<span class="str">'Habilidades:'</span>, ditto.abilities);
+  } <span class="kwd">catch</span> (error) {
+    <span class="com">// Captura errores de red o excepciones lanzadas</span>
+    console.<span class="fn">error</span>(<span class="str">'Ocurrió un error:'</span>, error.message);
+  }
+}</code></pre>
+                </div>
+
+                <!-- Traditional Promises Syntax -->
+                <div class="code-box">
+                    <div class="code-box-header badge-traditional">
+                        <span>📜 Opción 2: Promesas Tradicionales (.then / .catch)</span>
+                    </div>
+                    <pre class="code-block"><code><span class="kwd">function</span> <span class="fn">obtenerDittoConPromesas</span>() {
+  <span class="com">// 1. Iniciar la petición fetch</span>
+  <span class="fn">fetch</span>(<span class="str">'https://pokeapi.co/api/v2/pokemon/ditto'</span>)
+    .<span class="fn">then</span>(res => {
+      <span class="com">// 2. Validar respuesta HTTP</span>
+      <span class="kwd">if</span> (!res.ok) {
+        <span class="kwd">throw new</span> <span class="typ">Error</span>(<span class="str">`Error HTTP: ${res.status}`</span>);
+      }
+      <span class="com">// 3. Retornar la promesa de JSON</span>
+      <span class="kwd">return</span> res.<span class="fn">json</span>();
+    })
+    .<span class="fn">then</span>(ditto => {
+      <span class="com">// 4. Usar los datos de Ditto</span>
+      console.<span class="fn">log</span>(<span class="str">'Nombre:'</span>, ditto.name);
+      console.<span class="fn">log</span>(<span class="str">'Habilidades:'</span>, ditto.abilities);
+    })
+    .<span class="fn">catch</span>(error => {
+      <span class="com">// Manejar cualquier error de la cadena</span>
+      console.<span class="fn">error</span>(<span class="str">'Ocurrió un error:'</span>, error.message);
+    });
+}</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Best Practices & Gotchas -->
+        <section id="buenas-practicas" class="card">
+            <div class="card-header">
+                <h2>⚠️ Detalles Clave & Buenas Prácticas al usar <code>fetch()</code></h2>
+            </div>
+            <div class="tips-grid">
+                <div class="tip-card">
+                    <div class="tip-icon">🛑</div>
+                    <div>
+                        <h4>1. Fetch NO falla en 404 o 500</h4>
+                        <p>A diferencia de Axios o bibliotecas externas, <code>fetch()</code> solo rechaza la promesa ante fallos físicos de red (sin conexión). Ante un error 404 Not Found de la API, la promesa se resuelve con <code>response.ok = false</code>.</p>
+                    </div>
+                </div>
+
+                <div class="tip-card">
+                    <div class="tip-icon">⏳</div>
+                    <div>
+                        <h4>2. Dos Promesas en el proceso</h4>
+                        <p>Hay dos operaciones asíncronas involucradas: primero esperar la respuesta de la red (<code>fetch</code>), y luego descargar/parsear todo el body en JSON (<code>response.json()</code>).</p>
+                    </div>
+                </div>
+
+                <div class="tip-card">
+                    <div class="tip-icon">📤</div>
+                    <div>
+                        <h4>3. Enviar Datos (POST, PUT, DELETE)</h4>
+                        <p>Por defecto <code>fetch</code> hace peticiones <code>GET</code>. Para enviar datos debes pasar un objeto de opciones con <code>method</code>, <code>headers</code> y <code>body</code> (usualmente `JSON.stringify(datos)`).</p>
+                    </div>
+                </div>
+
+                <div class="tip-card">
+                    <div class="tip-icon">🔒</div>
+                    <div>
+                        <h4>4. Políticas CORS (Cross-Origin Resource Sharing)</h4>
+                        <p>PokéAPI es una API pública que permite llamadas cross-origin habilitando encabezados CORS (<code>Access-Control-Allow-Origin: *</code>), lo cual permite consumirla sin restricciones desde cualquier navegador.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>Creado para la Guía Didáctica - HTML & JavaScript Basic | Consumiendo <a href="https://pokeapi.co/" target="_blank">PokéAPI</a></p>
+            <p class="copyright">&copy; 2026 Dise&ntilde;o de Sistemas de Internet - Universidad Nacional de Ingeniería</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script src="js/app.js"></script>
+</body>
+
+</html>
