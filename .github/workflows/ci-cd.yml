@@ -64,16 +64,16 @@ jobs:
 
   # ---------- CD (DESACTIVADO): redesplegar en Railway ----------
   # Para volver a usar Railway: descomenta este job y comenta deploy-render.
-  # deploy-railway:
-  #   needs: build-test-push
-  #   if: github.event_name != 'pull_request'
-  #   runs-on: ubuntu-latest
-  #   container: ghcr.io/railwayapp/cli:latest
-  #   env:
-  #     RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-  #   steps:
-  #     - name: Redesplegar el servicio (descarga la nueva imagen :latest)
-  #       run: railway redeploy --service ${{ secrets.RAILWAY_SERVICE_ID }} --yes
+  deploy-railway:
+    needs: build-test-push
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - name: Redesplegar el servicio en Railways (descarga la nueva imagen :latest)
+        run: railway redeploy --service ${{ secrets.RAILWAY_SERVICE_ID }} --yes
 
   # ---------- CD: redesplegar en Render ----------
   deploy-render:
