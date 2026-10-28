@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, DOCKERCICD]
   pull_request:
-    branches: [main]
+    branches: [main,DOCKERCICD]
   workflow_dispatch:
 
 env:
