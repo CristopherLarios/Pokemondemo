@@ -392,7 +392,7 @@ Necesitamos dos **secrets** en GitHub:
 | Secret | Dónde se obtiene |
 |---|---|
 | `RAILWAY_TOKEN` | Railway → tu proyecto → **Settings → Tokens** → *Create* (Project Token, entorno `production`) |
-| `RAILWAY_SERVICE_ID` | Railway → el servicio → **Settings** → copia el *Service ID* (o usa el nombre del servicio) |
+| `RAILWAY_SERVICE_ID` | Railway → clic en la tarjeta del servicio → copia lo que va después de `/service/` en la URL (o usa el nombre del servicio). Detalle en [Parte 7](#parte-7--configuración-manual-del-entorno-trace) |
 
 Guardarlos: GitHub → repo → **Settings → Secrets and variables → Actions → New repository secret**.
 
@@ -473,12 +473,51 @@ Todo lo que **no** está automatizado y hay que hacer a mano, **en este orden** 
 | 6 | Railway → **New Project** → **Empty Project** | Crear el proyecto | Proyecto vacío en entorno `production` |
 | 7 | Proyecto → **+ Create** → **Docker Image** | Escribir `ghcr.io/cristopherlarios/pokemondemo:latest` y Enter | Railway descarga la imagen y hace el primer deploy |
 | 8 | Servicio → **Settings → Networking** → **Generate Domain** | Generar dominio público (si pide puerto, dejar el detectado o poner el valor de `PORT`) | URL tipo `https://pokemondemo-production.up.railway.app` que muestra la app |
-| 9 | Servicio → **Settings** | Copiar el **Service ID** (o anotar el nombre del servicio) | Valor para el secret `RAILWAY_SERVICE_ID` |
-| 10 | Proyecto → **Settings → Tokens** | **Create Token**, entorno `production`, copiarlo (solo se muestra una vez) | Valor para el secret `RAILWAY_TOKEN` |
-| 11 | GitHub repo → **Settings → Secrets and variables → Actions** → **New repository secret** | Crear `RAILWAY_TOKEN` (paso 10) | Secret listado |
-| 12 | Mismo lugar | Crear `RAILWAY_SERVICE_ID` (paso 9) | Secret listado |
-| 13 | GitHub → **Actions** → la ejecución fallida | **Re-run failed jobs** (o hacer un push nuevo) | ✅ `deploy-railway` en verde |
-| 14 | Prueba E2E | Cambiar un texto en `index.html` → commit → push | Tras ~2 min el cambio se ve en la URL de Railway sin tocar nada más |
+| 9–14 | Ver detalle abajo 👇 | Conectar GitHub Actions con Railway | Cada push redespliega solo |
+
+### Pasos 9–14 explicados: conectar GitHub con Railway
+
+**¿Qué es un "servicio"?** En Railway, el **proyecto** es la caja grande y cada **tarjeta** dentro de él es un **servicio** (un contenedor corriendo). En el paso 7 se creó la tarjeta `pokemondemo`: ese es nuestro servicio.
+
+```text
+Proyecto Railway
+ └── Servicio "pokemondemo"  ← la tarjeta; corre ghcr.io/cristopherlarios/pokemondemo:latest
+```
+
+**¿Por qué hacen falta si la app ya está en línea?** Tras el paso 8 Railway desplegó **una sola vez**. En el siguiente push, GitHub Actions sube una imagen `:latest` nueva a GHCR, pero **Railway no se entera**. El job `deploy-railway` le avisa ("redespliega"), y para eso GitHub necesita:
+
+| Secret | Para qué | Analogía |
+|---|---|---|
+| `RAILWAY_TOKEN` | Permiso para dar órdenes al proyecto | La llave de la casa |
+| `RAILWAY_SERVICE_ID` | A qué servicio aplicar el redeploy | El número de la habitación |
+
+Van como **secrets** porque el repo es público: escritos en el `.yml`, cualquiera podría usarlos.
+
+**Paso 9 · Service ID (Railway)**
+1. Abre el proyecto → clic en la tarjeta del servicio.
+2. Mira la URL del navegador: `https://railway.com/project/<id-proyecto>/service/<ID-SERVICIO>?...`
+3. Copia lo que está después de `/service/` (hasta el `?`). También sirve el **nombre** de la tarjeta (ej. `pokemondemo`).
+
+**Paso 10 · Project Token (Railway)**
+1. Dentro del proyecto → **Settings** del **proyecto** (barra superior, no el del servicio).
+2. Pestaña **Tokens**.
+3. Nombre `github-actions`, entorno **production** → **Create**.
+4. Cópialo ya: no se vuelve a mostrar.
+
+**Pasos 11 y 12 · Guardar los secrets (GitHub)**
+1. `github.com/<usuario>/Pokemondemo` → pestaña **Settings** del **repo** (no la del perfil).
+2. Menú izquierdo: **Secrets and variables → Actions** → **New repository secret**.
+3. Name `RAILWAY_TOKEN`, Secret = token del paso 10 → **Add secret**.
+4. Name `RAILWAY_SERVICE_ID`, Secret = ID del paso 9 → **Add secret**.
+   > Los nombres deben ser **exactos**: el `.yml` los busca así.
+
+**Paso 13 · Re-ejecutar el deploy (GitHub)**
+1. Repo → pestaña **Actions** → clic en la ejecución con ❌.
+2. Arriba a la derecha: **Re-run jobs → Re-run failed jobs**.
+3. `deploy-railway` queda ✅ y en Railway → servicio → **Deployments** aparece un deploy nuevo.
+
+**Paso 14 · Prueba de punta a punta**
+Cambia un texto visible de `index.html` → commit → push. Cuando Actions termine en verde (~2 min), recarga la URL de Railway: el cambio aparece **sin tocar Railway**. Eso es CD.
 
 **Registro de valores** (llénalo durante la clase; **nunca** escribas aquí el token):
 
