@@ -1,10 +1,10 @@
-# 🐳 Docker + CI/CD con GitHub Actions + Railway
+# 🐳 Docker + CI/CD con GitHub Actions + Render
 
 > Clase práctica demostrativa y plantilla reutilizable.
 > Proyecto: **Pokemondemo** (sitio estático HTML/CSS/JS servido con nginx).
 
 ```text
- Código ──push──▶ GitHub Actions ──▶ build ──▶ test ──▶ push a GHCR ──▶ Railway redeploy
+ Código ──push──▶ GitHub Actions ──▶ build ──▶ test ──▶ push a GHCR ──▶ Render deploy hook
  (tu PC)          (CI)                                   (registro)       (CD)
 ```
 
@@ -15,10 +15,11 @@
 - [Parte 2 · Comandos básicos de Docker](#parte-2--comandos-básicos-de-docker)
 - [Parte 3 · CI con GitHub Actions](#parte-3--ci-con-github-actions)
 - [Parte 4 · Guardar la imagen en GitHub (GHCR)](#parte-4--guardar-la-imagen-en-github-ghcr)
-- [Parte 5 · CD: desplegar en Railway](#parte-5--cd-desplegar-en-railway)
+- [Parte 5 · CD: desplegar en Render](#parte-5--cd-desplegar-en-render)
 - [Parte 6 · Usar esto como plantilla](#parte-6--usar-esto-como-plantilla)
 - [Parte 7 · Configuración manual del entorno (trace)](#parte-7--configuración-manual-del-entorno-trace)
 - [Problemas frecuentes](#problemas-frecuentes)
+- [Anexo · Railway (CD desactivado)](#anexo--railway-cd-desactivado)
 
 ---
 
@@ -29,7 +30,7 @@
 | Docker Desktop | Construir y correr imágenes | `docker --version` |
 | Git | Control de versiones | `git --version` |
 | Cuenta GitHub | Repo + Actions + registro de imágenes | — |
-| Cuenta Railway | Hosting del contenedor | https://railway.com |
+| Cuenta Render | Hosting del contenedor | https://render.com |
 
 Crear la rama de trabajo:
 
@@ -75,7 +76,7 @@ Imagen base. `nginx` = servidor web, `1.27` = versión fija (reproducible), `alp
 ```dockerfile
 ENV PORT=80
 ```
-Variable de entorno con valor por defecto. Railway asigna su propio puerto en `PORT`; en local usamos 80.
+Variable de entorno con valor por defecto. Render (o Railway) asigna su propio puerto en `PORT`; en local usamos 80.
 
 ```dockerfile
 COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
@@ -98,7 +99,7 @@ Documentación: indica en qué puerto escucha el contenedor. No publica nada por
 
 ```nginx
 server {
-    listen ${PORT};                          # puerto dinámico (80 local, el que diga Railway en la nube)
+    listen ${PORT};                          # puerto dinámico (80 local, el que diga Render en la nube)
     root /usr/share/nginx/html;              # carpeta del sitio
     index index.html;
     location / {
@@ -128,7 +129,7 @@ docker run -d --name pokemon -p 8080:80 pokemondemo:1.0
 
 Abrir 👉 http://localhost:8080
 
-Simular Railway (puerto dinámico):
+Simular la nube (puerto dinámico, como Render/Railway):
 
 ```bash
 docker run -d --name pokemon-railway -e PORT=9000 -p 9000:9000 pokemondemo:1.0
@@ -231,7 +232,7 @@ docker rmi pokemondemo:1.0
 #### Cabecera: nombre y disparadores
 
 ```yaml
-name: CI/CD Docker -> GHCR -> Railway
+name: CI/CD Docker -> GHCR -> Render
 
 on:
   push:
@@ -294,7 +295,7 @@ jobs:
 
 > La Parte 4 explica los steps 5–7 (publicar la imagen).
 
-#### Job 2: `deploy-railway` → ver Parte 5.
+#### Job 2: `deploy-render` → ver Parte 5. (El job `deploy-railway` quedó comentado: ver Anexo.)
 
 ### 3.3 Ver el pipeline en acción
 
@@ -355,7 +356,7 @@ En GitHub → pestaña **Actions** → clic en la ejecución → clic en el job 
 
 1. Ve a tu perfil de GitHub → **Packages** → `pokemondemo`.
 2. Verás los tags `latest` y `sha-xxxxxxx`.
-3. **Hazla pública** (necesario para que Railway la descargue sin credenciales):
+3. **Hazla pública** (necesario para que Render la descargue sin credenciales):
    **Package settings → Danger Zone → Change visibility → Public**.
 
 ### 4.3 Usar la imagen publicada desde cualquier PC
@@ -372,11 +373,185 @@ docker pull ghcr.io/cristopherlarios/pokemondemo:sha-3896c7d
 
 ---
 
-## Parte 5 · CD: desplegar en Railway
+## Parte 5 · CD: desplegar en Render
 
 **CI** = integración continua (construir + probar). **CD** = despliegue continuo (llevar a producción automáticamente).
 
-### 5.1 Crear el servicio en Railway (una sola vez, manual)
+Render no necesita CLI: cada servicio tiene un **Deploy Hook**, una URL secreta que al recibir un `POST` vuelve a desplegar el servicio (descarga otra vez `:latest` desde GHCR).
+
+### 5.1 Crear el servicio en Render (una sola vez, manual)
+
+1. https://dashboard.render.com → **+ New** → **Web Service**.
+2. Elige **Existing Image** (desplegar una imagen ya construida).
+3. **Image URL**: `ghcr.io/cristopherlarios/pokemondemo:latest` → **Connect**.
+   > Si dice que no puede acceder, el paquete en GHCR sigue privado (Parte 4.2).
+4. Configura:
+   - **Name**: `pokemondemo` (será parte de la URL).
+   - **Region**: la más cercana (ej. *Oregon* u *Ohio*).
+   - **Instance Type**: **Free**.
+5. **Advanced** (opcional): **Environment Variables** → `PORT` = `10000`. Render ya inyecta `PORT=10000` por defecto y nuestra imagen lo respeta, así que normalmente no hace falta.
+6. **Deploy Web Service** y espera a que el log diga *Your service is live 🎉*.
+7. Abre la URL `https://pokemondemo-xxxx.onrender.com` 🎉
+
+> ℹ️ Plan Free: el servicio "se duerme" tras ~15 min sin visitas; la primera visita después tarda ~30–50 s en despertar. Es normal.
+
+### 5.2 Conectar GitHub Actions con Render
+
+Solo hace falta **un secret** en GitHub:
+
+| Secret | Dónde se obtiene |
+|---|---|
+| `RENDER_DEPLOY_HOOK_URL` | Render → servicio → **Settings** → sección **Deploy Hook** → copiar la URL (`https://api.render.com/deploy/srv-...?key=...`) |
+
+Guardarlo: GitHub → repo → **Settings → Secrets and variables → Actions → New repository secret**.
+
+> 🔐 La URL del hook **es** la contraseña: quien la tenga puede redesplegar tu servicio. Nunca la pongas en el `.yml`. Si se filtra, en Render usa **Regenerate** y actualiza el secret.
+
+### 5.3 El job de CD explicado
+
+```yaml
+  deploy-render:
+    needs: build-test-push                     # solo corre si el job 1 terminó OK
+    if: github.event_name != 'pull_request'    # los PR no despliegan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Redesplegar el servicio (Render descarga la nueva imagen :latest)
+        run: curl -sf -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+```
+
+- `needs` crea la cadena **build → test → push → deploy**. Si falla la prueba, nunca llega a producción.
+- `curl -X POST <hook>` le dice a Render "despliega de nuevo"; Render vuelve a descargar `:latest` de GHCR.
+- `-f` hace que el step falle (❌) si Render responde con error (hook mal copiado, servicio borrado...).
+- No necesita `container:` ni CLI: `curl` ya viene en `ubuntu-latest`.
+
+### 5.4 Flujo completo
+
+```text
+git push
+  └─▶ Job build-test-push
+        1 checkout ─▶ 2 build ─▶ 3 test ─▶ 5 login ─▶ 6 tags ─▶ 7 push a ghcr.io
+  └─▶ Job deploy-render (needs)
+        curl POST deploy hook ─▶ Render descarga :latest ─▶ nueva versión en línea
+```
+
+### 5.5 Rollback en Render
+
+Opción A (rápida): Render → servicio → **Events** → deploy anterior → **Rollback**.
+Opción B (por versión): **Settings → Image URL** → cambia a `ghcr.io/cristopherlarios/pokemondemo:sha-<commit-bueno>` → **Save** y despliega.
+> Ojo: con la opción B el siguiente push seguirá desplegando esa imagen fija; vuelve a poner `:latest` cuando corrijas el bug.
+
+---
+
+## Parte 6 · Usar esto como plantilla
+
+Para otro proyecto **estático** basta copiar los 4 archivos y ajustar:
+
+| Archivo | Qué cambiar |
+|---|---|
+| `Dockerfile` | Las líneas `COPY` con tus archivos/carpetas |
+| `ci-cd.yml` step 3 | El texto que busca `grep` (algo que siempre aparezca en tu página) |
+| `ci-cd.yml` `branches` | Las ramas que disparan el pipeline |
+| Render | Image URL del servicio y el secret `RENDER_DEPLOY_HOOK_URL` |
+
+Para una app **Node/Python/etc.** cambia solo el `Dockerfile` (otra imagen base + comando de arranque escuchando en `$PORT`); el workflow sirve igual.
+
+### Checklist de la clase ✅
+
+- [ ] `docker build` y `docker run` funcionan en local
+- [ ] Practiqué tags, rollback y borrado de imágenes
+- [ ] Push → Actions en verde
+- [ ] Imagen visible en **Packages** y marcada como **Public**
+- [ ] Servicio creado en Render desde la imagen de GHCR (URL `.onrender.com` funcionando)
+- [ ] Secret `RENDER_DEPLOY_HOOK_URL` creado
+- [ ] Cambio en `index.html` → push → se ve en la URL de Render sin tocar nada más
+
+---
+
+## Parte 7 · Configuración manual del entorno (trace)
+
+Todo lo que **no** está automatizado y hay que hacer a mano, **en este orden** (el orden importa: el paquete en GHCR no existe hasta el primer push, y Render no puede usar la imagen hasta que sea pública).
+
+| # | Dónde | Acción | Resultado esperado |
+|---|---|---|---|
+| 1 | Terminal | `git push -u origin DOCKERCICD` | Arranca el workflow en **Actions** |
+| 2 | GitHub → **Actions** | Abrir la ejecución y esperar el job `build-test-push` | ✅ verde. El job `deploy-render` fallará (❌) porque aún no hay secret: **es normal** |
+| 3 | GitHub → tu perfil → **Packages** → `pokemondemo` | Verificar tags `latest` y `sha-xxxxxxx` | La imagen existe en `ghcr.io/cristopherlarios/pokemondemo` |
+| 4 | Package → **Package settings** → *Danger Zone* → **Change visibility** | Elegir **Public** y confirmar escribiendo el nombre | El paquete muestra la etiqueta *Public* |
+| 5 | (Opcional) Package → **Package settings** → *Manage Actions access* | Verificar que el repo `Pokemondemo` tenga rol **Write** | Evita `permission_denied` en futuros push |
+| 6 | Render → **+ New** → **Web Service** → **Existing Image** | Image URL `ghcr.io/cristopherlarios/pokemondemo:latest` → **Connect** | Render valida que puede descargar la imagen |
+| 7 | Formulario del servicio | Name `pokemondemo`, Region cercana, Instance Type **Free** → **Deploy Web Service** | Primer deploy; log *Your service is live* |
+| 8 | Arriba del servicio | Abrir la URL `https://pokemondemo-xxxx.onrender.com` | Se ve la app |
+| 9–12 | Ver detalle abajo 👇 | Conectar GitHub Actions con Render | Cada push redespliega solo |
+
+### Pasos 9–12 explicados: conectar GitHub con Render
+
+**¿Por qué hace falta si la app ya está en línea?** Tras el paso 7 Render desplegó **una sola vez**. En el siguiente push, GitHub Actions sube una imagen `:latest` nueva a GHCR, pero **Render no se entera**. El job `deploy-render` le avisa llamando al **Deploy Hook**.
+
+| Secret | Para qué | Analogía |
+|---|---|---|
+| `RENDER_DEPLOY_HOOK_URL` | URL secreta que ordena "redespliega este servicio" | El timbre + la llave en uno |
+
+Va como **secret** porque el repo es público: escrito en el `.yml`, cualquiera podría redesplegar tu servicio.
+
+**Paso 9 · Copiar el Deploy Hook (Render)**
+1. Render → clic en el servicio `pokemondemo` → **Settings**.
+2. Baja hasta **Deploy Hook**.
+3. Copia la URL completa (`https://api.render.com/deploy/srv-...?key=...`). Incluye el `?key=...`.
+
+**Paso 10 · Guardar el secret (GitHub)**
+1. `github.com/<usuario>/Pokemondemo` → pestaña **Settings** del **repo** (no la del perfil).
+2. Menú izquierdo: **Secrets and variables → Actions** → **New repository secret**.
+3. Name `RENDER_DEPLOY_HOOK_URL`, Secret = URL del paso 9 → **Add secret**.
+   > El nombre debe ser **exacto**: el `.yml` lo busca así.
+
+**Paso 11 · Re-ejecutar el deploy (GitHub)**
+1. Repo → pestaña **Actions** → clic en la ejecución con ❌.
+2. Arriba a la derecha: **Re-run jobs → Re-run failed jobs**.
+3. `deploy-render` queda ✅ y en Render → servicio → **Events** aparece *Deploy started… triggered via Deploy Hook*.
+
+**Paso 12 · Prueba de punta a punta**
+Cambia un texto visible de `index.html` → commit → push. Cuando Actions termine en verde (~2 min) y Render diga *live* (~1 min más), recarga la URL de Render: el cambio aparece **sin tocar Render**. Eso es CD.
+
+**Registro de valores** (llénalo durante la clase; **nunca** escribas aquí la URL del hook):
+
+```text
+Imagen GHCR ........: ghcr.io/cristopherlarios/pokemondemo
+Visibilidad ........: Public  [ ]
+Servicio Render ....: ______________________
+URL pública ........: https://______________________.onrender.com
+Secret creado ......: RENDER_DEPLOY_HOOK_URL [ ]
+Primer deploy CD OK : fecha ____/____/______  commit sha-_______
+```
+
+---
+
+## Problemas frecuentes
+
+| Síntoma | Causa / Solución |
+|---|---|
+| `port is already allocated` | Ese puerto ya está en uso: usa otro (`-p 8081:80`) o `docker rm -f` el contenedor viejo |
+| `denied: permission_denied` al subir a GHCR | Falta `permissions: packages: write` en el job, o el paquete pertenece a otro repo (Package settings → *Manage Actions access*) |
+| Render: *Unable to access image* / `failed to pull` | El paquete en GHCR sigue **privado** → hazlo público |
+| Render: *No open ports detected* / *Timed out* | nginx no escucha en `$PORT`: revisa que la plantilla use `listen ${PORT};` |
+| Job `deploy-render`: `curl: (22) ... 404` o `401` | `RENDER_DEPLOY_HOOK_URL` vacío o mal copiado (falta el `?key=...`) o fue regenerado |
+| Render tarda mucho en abrir | Plan Free dormido: la primera visita lo despierta (~30–50 s) |
+| Railway: `failed to pull image` | El paquete en GHCR sigue **privado** → hazlo público |
+| Railway: *Application failed to respond* | nginx no escucha en `$PORT`: revisa que la plantilla use `listen ${PORT};` |
+| Job deploy: `Unauthorized` / `invalid token` | `RAILWAY_TOKEN` mal copiado o es un token de cuenta en vez de **Project Token** |
+| Railway no muestra el cambio | Revisa en *Deployments* que el deploy nuevo terminó; recarga sin caché (Ctrl+Shift+R) |
+| `invalid reference format: repository name must be lowercase` | Usa nombres de imagen en minúsculas |
+
+---
+
+## Anexo · Railway (CD desactivado)
+
+> El job `deploy-railway` sigue en `ci-cd.yml` pero **comentado**. Para volver a Railway: descomenta ese bloque, comenta `deploy-render` y sigue los pasos de abajo.
+
+### A.1 Desplegar en Railway
+
+**CI** = integración continua (construir + probar). **CD** = despliegue continuo (llevar a producción automáticamente).
+
+#### 5.1 Crear el servicio en Railway (una sola vez, manual)
 
 1. https://railway.com → **New Project** → **Empty Project**.
 2. **+ Create** → **Docker Image** → escribe:
@@ -385,20 +560,20 @@ docker pull ghcr.io/cristopherlarios/pokemondemo:sha-3896c7d
 4. En el servicio → **Settings → Networking → Generate Domain**. Railway asigna `PORT` automáticamente y nuestra imagen ya lo respeta.
 5. Abre la URL generada 🎉
 
-### 5.2 Conectar GitHub Actions con Railway
+#### 5.2 Conectar GitHub Actions con Railway
 
 Necesitamos dos **secrets** en GitHub:
 
 | Secret | Dónde se obtiene |
 |---|---|
 | `RAILWAY_TOKEN` | Railway → tu proyecto → **Settings → Tokens** → *Create* (Project Token, entorno `production`) |
-| `RAILWAY_SERVICE_ID` | Railway → clic en la tarjeta del servicio → copia lo que va después de `/service/` en la URL (o usa el nombre del servicio). Detalle en [Parte 7](#parte-7--configuración-manual-del-entorno-trace) |
+| `RAILWAY_SERVICE_ID` | Railway → clic en la tarjeta del servicio → copia lo que va después de `/service/` en la URL (o usa el nombre del servicio). Detalle en [A.2](#a2-configuración-manual-en-railway-trace) |
 
 Guardarlos: GitHub → repo → **Settings → Secrets and variables → Actions → New repository secret**.
 
 > 🔐 Nunca escribas tokens dentro del `.yml`: el repo es público. `secrets.*` se ocultan en los logs (`***`).
 
-### 5.3 El job de CD explicado
+#### 5.3 El job de CD explicado
 
 ```yaml
   deploy-railway:
@@ -417,7 +592,7 @@ Guardarlos: GitHub → repo → **Settings → Secrets and variables → Actions
 - `railway redeploy` le pide a Railway volver a desplegar el servicio, que descarga de nuevo `:latest` desde GHCR.
 - `--yes` evita la pregunta interactiva de confirmación (en CI nadie puede contestar).
 
-### 5.4 Flujo completo
+#### 5.4 Flujo completo
 
 ```text
 git push
@@ -427,39 +602,12 @@ git push
         railway redeploy ─▶ Railway descarga :latest ─▶ nueva versión en línea
 ```
 
-### 5.5 Rollback en Railway
+#### 5.5 Rollback en Railway
 
 Opción A (rápida): Railway → servicio → **Deployments** → deploy anterior → **Redeploy**.
 Opción B (por versión): Settings → Source → cambia la imagen a `ghcr.io/cristopherlarios/pokemondemo:sha-<commit-bueno>`.
 
----
-
-## Parte 6 · Usar esto como plantilla
-
-Para otro proyecto **estático** basta copiar los 4 archivos y ajustar:
-
-| Archivo | Qué cambiar |
-|---|---|
-| `Dockerfile` | Las líneas `COPY` con tus archivos/carpetas |
-| `ci-cd.yml` step 3 | El texto que busca `grep` (algo que siempre aparezca en tu página) |
-| `ci-cd.yml` `branches` | Las ramas que disparan el pipeline |
-| Railway | Nombre de la imagen y los dos secrets |
-
-Para una app **Node/Python/etc.** cambia solo el `Dockerfile` (otra imagen base + comando de arranque escuchando en `$PORT`); el workflow sirve igual.
-
-### Checklist de la clase ✅
-
-- [ ] `docker build` y `docker run` funcionan en local
-- [ ] Practiqué tags, rollback y borrado de imágenes
-- [ ] Push → Actions en verde
-- [ ] Imagen visible en **Packages** y marcada como **Public**
-- [ ] Servicio creado en Railway desde la imagen de GHCR + dominio generado
-- [ ] Secrets `RAILWAY_TOKEN` y `RAILWAY_SERVICE_ID` creados
-- [ ] Cambio en `index.html` → push → se ve en la URL de Railway sin tocar nada más
-
----
-
-## Parte 7 · Configuración manual del entorno (trace)
+### A.2 Configuración manual en Railway (trace)
 
 Todo lo que **no** está automatizado y hay que hacer a mano, **en este orden** (el orden importa: el paquete en GHCR no existe hasta el primer push, y Railway no puede usar la imagen hasta que sea pública).
 
@@ -475,7 +623,7 @@ Todo lo que **no** está automatizado y hay que hacer a mano, **en este orden** 
 | 8 | Servicio → **Settings → Networking** → **Generate Domain** | Generar dominio público (si pide puerto, dejar el detectado o poner el valor de `PORT`) | URL tipo `https://pokemondemo-production.up.railway.app` que muestra la app |
 | 9–14 | Ver detalle abajo 👇 | Conectar GitHub Actions con Railway | Cada push redespliega solo |
 
-### Pasos 9–14 explicados: conectar GitHub con Railway
+#### Pasos 9–14 explicados: conectar GitHub con Railway
 
 **¿Qué es un "servicio"?** En Railway, el **proyecto** es la caja grande y cada **tarjeta** dentro de él es un **servicio** (un contenedor corriendo). En el paso 7 se creó la tarjeta `pokemondemo`: ese es nuestro servicio.
 
@@ -530,17 +678,3 @@ URL pública ........: https://______________________
 Secrets creados ....: RAILWAY_TOKEN [ ]   RAILWAY_SERVICE_ID [ ]
 Primer deploy CD OK : fecha ____/____/______  commit sha-_______
 ```
-
----
-
-## Problemas frecuentes
-
-| Síntoma | Causa / Solución |
-|---|---|
-| `port is already allocated` | Ese puerto ya está en uso: usa otro (`-p 8081:80`) o `docker rm -f` el contenedor viejo |
-| `denied: permission_denied` al subir a GHCR | Falta `permissions: packages: write` en el job, o el paquete pertenece a otro repo (Package settings → *Manage Actions access*) |
-| Railway: `failed to pull image` | El paquete en GHCR sigue **privado** → hazlo público |
-| Railway: *Application failed to respond* | nginx no escucha en `$PORT`: revisa que la plantilla use `listen ${PORT};` |
-| Job deploy: `Unauthorized` / `invalid token` | `RAILWAY_TOKEN` mal copiado o es un token de cuenta en vez de **Project Token** |
-| Railway no muestra el cambio | Revisa en *Deployments* que el deploy nuevo terminó; recarga sin caché (Ctrl+Shift+R) |
-| `invalid reference format: repository name must be lowercase` | Usa nombres de imagen en minúsculas |

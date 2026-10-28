@@ -188,7 +188,7 @@ docker history pokemondemo:1.0
 
 ## 6 · Variables de entorno (`-e`)
 
-Nuestra imagen escucha en el puerto que diga `PORT` (así funciona Railway). Simularlo:
+Nuestra imagen escucha en el puerto que diga `PORT` (así funcionan Render y Railway). Simularlo:
 
 ```bash
 docker run -d --name pokemon-railway -e PORT=9000 -p 9000:9000 pokemondemo:1.0

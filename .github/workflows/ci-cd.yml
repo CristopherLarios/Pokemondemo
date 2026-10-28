@@ -1,4 +1,4 @@
-name: CI/CD Docker -> GHCR -> Railway
+name: CI/CD Docker -> GHCR -> Render
 
 on:
   push:
@@ -62,14 +62,24 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  # ---------- CD: redesplegar en Railway ----------
-  deploy-railway:
+  # ---------- CD (DESACTIVADO): redesplegar en Railway ----------
+  # Para volver a usar Railway: descomenta este job y comenta deploy-render.
+  # deploy-railway:
+  #   needs: build-test-push
+  #   if: github.event_name != 'pull_request'
+  #   runs-on: ubuntu-latest
+  #   container: ghcr.io/railwayapp/cli:latest
+  #   env:
+  #     RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  #   steps:
+  #     - name: Redesplegar el servicio (descarga la nueva imagen :latest)
+  #       run: railway redeploy --service ${{ secrets.RAILWAY_SERVICE_ID }} --yes
+
+  # ---------- CD: redesplegar en Render ----------
+  deploy-render:
     needs: build-test-push
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    container: ghcr.io/railwayapp/cli:latest
-    env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
-      - name: Redesplegar el servicio (descarga la nueva imagen :latest)
-        run: railway redeploy --service ${{ secrets.RAILWAY_SERVICE_ID }} --yes
+      - name: Redesplegar el servicio (Render descarga la nueva imagen :latest)
+        run: curl -sf -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
