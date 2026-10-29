@@ -1,0 +1,85 @@
+name: CI/CD Docker -> GHCR -> Render
+
+on:
+  push:
+    branches: [main, DOCKERCICD,5t3]
+  pull_request:
+    branches: [main,DOCKERCICD,5t3]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ---------- CI: construir, probar y publicar la imagen ----------
+  build-test-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: 1. Descargar el código
+        uses: actions/checkout@v4
+
+      - name: 2. Construir la imagen
+        run: docker build -t pokemondemo:test .
+
+      - name: 3. Prueba sencilla (levantar y hacer curl)
+        run: |
+          docker run -d --name app -p 8080:80 pokemondemo:test
+          sleep 3
+          curl -sf http://localhost:8080 | grep -q "PokéAPI"
+          echo "✅ La app responde y contiene 'PokéAPI'"
+
+      - name: 4. Logs del contenedor (solo si falló)
+        if: failure()
+        run: docker logs app
+
+      - name: 5. Login en GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 6. Calcular tags (latest + sha)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: 7. Publicar la imagen en GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # ---------- CD (DESACTIVADO): redesplegar en Railway ----------
+  # Para volver a usar Railway: descomenta este job y comenta deploy-render.
+  deploy-railway:
+    needs: build-test-push
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - name: Redesplegar el servicio en Railways (descarga la nueva imagen :latest)
+        run: railway redeploy --service ${{ secrets.RAILWAY_SERVICE_ID }} --yes
+
+  # ---------- CD: redesplegar en Render ----------
+  deploy-render:
+    needs: build-test-push
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Redesplegar el servicio (Render descarga la nueva imagen :latest)
+        run: curl -sf -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
